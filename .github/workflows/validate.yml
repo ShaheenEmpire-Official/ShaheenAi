@@ -20,3 +20,47 @@ jobs:
         run: python -m compileall -q backend tests
       - name: Run engine tests
         run: python -m unittest discover -s tests -v
+      - name: Build video-rendering Docker image
+        run: docker build -t shaheenai-test .
+      - name: Test real MP4 generation
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run -d --name shaheenai-smoke -p 10000:10000 shaheenai-test
+          trap 'docker logs shaheenai-smoke || true; docker rm -f shaheenai-smoke || true' EXIT
+          ready=0
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:10000/api/health >/tmp/health.json; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          test "$ready" = "1"
+          curl --fail --silent --show-error --max-time 240 \
+            -H "Content-Type: application/json" \
+            -d '{"url":"https://example.com"}' \
+            http://127.0.0.1:10000/api/create > /tmp/create-result.json
+          python - <<'PY'
+          import json
+          data = json.load(open("/tmp/create-result.json", encoding="utf-8"))
+          assert data["status"] == "video_created", data
+          assert data["video_url"].endswith(".mp4"), data
+          assert data["captions_url"].endswith(".srt"), data
+          print("MP4 endpoint created:", data["video_url"])
+          print("Voiceover status:", data["voiceover"])
+          PY
+          VIDEO_URL=$(python -c 'import json; print(json.load(open("/tmp/create-result.json"))["video_url"])')
+          SRT_URL=$(python -c 'import json; print(json.load(open("/tmp/create-result.json"))["captions_url"])')
+          curl --fail --silent --show-error "$VIDEO_URL" -o /tmp/shaheenai-smoke.mp4
+          curl --fail --silent --show-error "$SRT_URL" -o /tmp/shaheenai-smoke.srt
+          python - <<'PY'
+          from pathlib import Path
+          video = Path("/tmp/shaheenai-smoke.mp4").read_bytes()
+          captions = Path("/tmp/shaheenai-smoke.srt").read_text(encoding="utf-8")
+          assert len(video) > 4000, len(video)
+          assert b"ftyp" in video[:32], video[:32]
+          assert "-->" in captions, captions
+          print("MP4 bytes:", len(video))
+          print("SRT bytes:", len(captions.encode("utf-8")))
+          PY
