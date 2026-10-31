@@ -6,4 +6,4 @@ services:
     region: singapore
     dockerfilePath: ./Dockerfile
     healthCheckPath: /api/health
-    autoDeploy: true
+    autoDeployTrigger: commit
