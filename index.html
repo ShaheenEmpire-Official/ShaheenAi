@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ShaheenAI Creator</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#07111f;color:#edf4ff;font:16px system-ui,sans-serif}.wrap{max-width:850px;margin:auto;padding:24px}h1{color:#72d5ff}p{color:#b8c8da}.panel{background:#101f32;border:1px solid #25415e;border-radius:16px;padding:18px;margin:16px 0}input,select,button,textarea{width:100%;padding:13px;border-radius:10px;border:1px solid #34516f;background:#091727;color:#fff;margin:7px 0;font:inherit}button{background:#087fbd;border:0;font-weight:700;cursor:pointer}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#07111f;padding:14px;border-radius:10px;color:#d7e9ff}.muted{font-size:13px;color:#91a6bd}
+</style></head><body><main class="wrap"><h1>🦅 ShaheenAI Creator</h1><p>Website research → script draft → captions → SRT subtitles</p>
+<section class="panel"><label>Backend API URL</label><input id="api" placeholder="Example: http://127.0.0.1:8000"><label>Website URL</label><input id="url" type="url" placeholder="https://example.com"><label>Output language</label><select id="lang"><option>auto</option><option>English</option><option>Urdu</option><option>Roman Urdu</option></select><label>Video length (seconds)</label><input id="duration" type="number" min="15" max="180" value="45"><button id="go">Create script & captions</button><p id="status" class="muted">Start the backend first, then enter its reachable URL above.</p></section>
+<section id="result" class="panel" hidden><h2 id="title"></h2><h3>Script</h3><pre id="script"></pre><h3>Timed captions</h3><pre id="captions"></pre><h3>SRT subtitles</h3><textarea id="srt" rows="10"></textarea><button id="download">Download .srt</button><p id="notice" class="muted"></p></section>
+<script>
+const $=id=>document.getElementById(id);let lastSrt="";
+$('go').onclick=async()=>{const base=$('api').value.trim().replace(/\/$/,'');if(!base||!$('url').value){$('status').textContent='Enter both the backend URL and a website URL.';return}
+$('go').disabled=true;$('status').textContent='Reading webpage…';
+try{const res=await fetch(base+'/api/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:$('url').value,language:$('lang').value,duration_seconds:Number($('duration').value)||45})});const data=await res.json();if(!res.ok)throw new Error(data.detail||'Request failed');$('result').hidden=false;$('title').textContent=data.title;$('script').textContent=data.script.join('\n\n');$('captions').textContent=data.captions.map(c=>c.start+'s–'+c.end+'s: '+c.text).join('\n');lastSrt=data.srt;$('srt').value=lastSrt;$('notice').textContent=data.notice;$('status').textContent='Draft ready. No video file has been rendered.'}
+catch(e){$('status').textContent='Error: '+e.message+' — Check that the backend is running and reachable.'}
+finally{$('go').disabled=false}};
+$('download').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([lastSrt],{type:'text/plain;charset=utf-8'}));a.download='shaheenai-captions.srt';a.click();URL.revokeObjectURL(a.href)};
+</script></main></body></html>
