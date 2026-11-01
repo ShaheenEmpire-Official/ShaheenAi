@@ -1,16 +1,32 @@
 # SHAHEEN AI Video Studio
 
-SHAHEEN AI turns a public webpage into an original, share-ready explainer video. Open the app, paste a URL, choose a video shape, and create an MP4 with optional narration and subtitle captions.
+SHAHEEN AI converts a publicly readable webpage into a short, original text-card explainer video.
 
-## What it does
+## Current features
 
-- Reads publicly accessible HTML pages and extracts the title, description, headings, and readable page text.
-- Detects Urdu-script or English content and prepares a short story outline.
-- Renders original SHAHEEN AI text-card visuals as MP4 in **vertical (9:16), landscape (16:9), or square (1:1)** formats.
-- Offers quick or standard video timing.
-- Attempts English or Urdu narration using gTTS. When voice generation is unavailable, video creation continues without narration.
-- Generates a timed SRT subtitle file and provides an in-page video preview and download links.
-- Includes a health endpoint at `/api/health`, basic per-client request throttling, URL validation, redirect re-validation, and a 3 MB source-page limit.
+- Paste a public webpage URL and extract its title, metadata, headings, and readable paragraphs.
+- Detect English or Urdu script.
+- Choose vertical (9:16), landscape (16:9), or square (1:1) output.
+- Choose quick or standard length.
+- Try automatic English/Urdu narration; rendering can continue without narration if the speech service is unavailable.
+- Preview the generated MP4 and download the MP4 and SRT captions.
+- Use GitHub Actions to validate Python syntax, run tests, build the Docker image, and test real MP4 generation.
+
+## Free deployment options
+
+### Vercel (recommended free-tier route)
+
+The repository contains a Vercel FastAPI entrypoint (`index.py`), `vercel.json`, and a portable FFmpeg package so the app can run as a Python Function.
+
+1. Connect this public GitHub repository to a Vercel project.
+2. Deploy with the default project settings.
+3. Open the Vercel deployment URL. The same app URL serves the interface and API.
+
+The Vercel Hobby plan currently documents a 300-second maximum function duration and Python functions have a 500 MB uncompressed bundle limit. Video responses are returned directly to the browser from the same function request because serverless temporary files are not durable. The app caps the encoded MP4 response size. These platform limits mean some longer or large videos may need a shorter setting. Check the current Vercel plan terms before relying on them for regular use.
+
+### Render (alternative)
+
+A Render Blueprint is included in `render.yaml`. The free plan may require billing setup for the account/workspace and free instances can sleep when idle. Do not add a payment method unless the account owner and a parent/guardian have reviewed the terms.
 
 ## Run locally
 
@@ -23,33 +39,17 @@ uvicorn backend.main:app --host 0.0.0.0 --port 8000
 
 Open http://127.0.0.1:8000.
 
-## Deploy on Render
-
-The repository includes a Dockerfile and Render Blueprint. The blueprint defines a single free-plan web service in the Singapore region.
-
-1. Open the Render Blueprint page for this repository:  
-   https://dashboard.render.com/blueprint/new?repo=https://github.com/ShaheenEmpire-Official/ShaheenAi
-2. Review the service settings and apply the Blueprint.
-3. Once the first deploy is live, open the service URL supplied by Render. The app and API run together on that URL.
-
-The repository is public, but deploying still requires a Render account and the account owner's approval in Render. Render free services may sleep when idle and are resource-limited; first requests can be slow and sustained video workloads are not guaranteed. Confirm current plan terms in Render before using it for public production traffic.
-
-## Test suite
+## Test
 
 ```bash
-python -m compileall -q backend tests
+python -m compileall -q backend tests index.py
 python -m unittest discover -s tests -v
 ```
 
-GitHub Actions also builds the Docker image and runs an end-to-end MP4/SRT smoke test after pushes and pull requests.
+## Honest scope and limits
 
-## Important limits
+This version creates an explainer using original SHAHEEN AI text-card visuals from the webpage's readable text. It does **not** yet record the actual website screen, automatically select its images/videos, generate a full cinematic storyboard, or fetch trending commercial music. It does not copy third-party videos or music, and does not include copyrighted songs. Automatic narration depends on an external text-to-speech service.
 
-- The output is an animated text-card explainer, not a pixel-perfect screen recording of the source website and not a full AI video editor.
-- It does not copy the source website's images, videos, or music.
-- It does not translate arbitrary content between languages or rewrite it with a large language model.
-- Pages requiring login, blocking automated requests, or rendering most content only with client-side JavaScript may not be readable.
-- gTTS relies on an external service and may not always be available.
-- Generated files are kept on the server's temporary filesystem. Download them after creation; files can disappear after restarts or redeploys.
-- The URL checks block common private/local destinations and re-check redirects, but they are not a substitute for a dedicated production security review.
-- Use only websites and content you own or have permission to process.
+Pages behind login, pages that block automated requests, and pages whose content exists only after complex JavaScript execution may not be readable. The output is temporary and the serverless response size is capped. Use only sites and source material you own or have permission to process.
+
+No ads or ad scripts are included in this project.
