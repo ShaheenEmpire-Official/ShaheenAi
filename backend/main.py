@@ -101,7 +101,7 @@ def fetch_public_page(raw_url: str):
 
 
 def clean(value: str) -> str:
-    return re.sub(r"\\s+", " ", html.unescape(value or "")).strip()
+    return re.sub(r"\s+", " ", html.unescape(value or "")).strip()
 
 
 def extract_page(raw_html: str, final_url: str):
@@ -144,7 +144,7 @@ def extract_page(raw_html: str, final_url: str):
         raise HTTPException(422, "No readable page text was found. Try a public article, product page, or blog.")
 
     sample = " ".join([title, description] + headings + unique)
-    language = "Urdu" if re.search(r"[\\u0600-\\u06FF]", sample) else "English"
+    language = "Urdu" if re.search(r"[\u0600-\u06FF]", sample) else "English"
     return title, description, headings, unique, language
 
 
@@ -269,8 +269,8 @@ def make_srt(lines, durations):
     for idx, (line, duration) in enumerate(zip(lines, durations), start=1):
         start = current
         current += duration
-        blocks.append(f"{idx}\\n{stamp(start)} --> {stamp(current)}\\n{line}")
-    return "\\n\\n".join(blocks) + "\\n"
+        blocks.append(f"{idx}\n{stamp(start)} --> {stamp(current)}\n{line}")
+    return "\n\n".join(blocks) + "\n"
 
 
 def render_video(title: str, lines, language: str, job_id: str,
@@ -307,9 +307,9 @@ def render_video(title: str, lines, language: str, job_id: str,
                 slide = work / f"slide_{idx:03d}.png"
                 make_slide(slide, title, sentence, idx+1, len(lines), is_urdu, video_format)
                 slides.append(slide)
-                handle.write(f"file '{slide.as_posix()}'\\n")
-                handle.write(f"duration {durations[idx]:.3f}\\n")
-            handle.write(f"file '{slides[-1].as_posix()}'\\n")
+                handle.write(f"file '{slide.as_posix()}'\n")
+                handle.write(f"duration {durations[idx]:.3f}\n")
+            handle.write(f"file '{slides[-1].as_posix()}'\n")
 
         video_name = f"{job_id}.mp4"
         srt_name = f"{job_id}.srt"
@@ -411,7 +411,7 @@ def create(req: CreateRequest, request: Request):
 
 @app.get("/api/download/{filename}")
 def download_file(filename: str):
-    if not re.fullmatch(r"[a-f0-9]{32}\\.(mp4|srt)", filename):
+    if not re.fullmatch(r"[a-f0-9]{32}\.(mp4|srt)", filename):
         raise HTTPException(404, "File not found.")
     path = OUTPUT_DIR / filename
     if not path.exists():
