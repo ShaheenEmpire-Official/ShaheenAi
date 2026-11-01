@@ -57,7 +57,9 @@ jobs:
           assert data["status"] == "video_created", data
           assert data["video_url"].endswith(".mp4"), data
           assert data["captions_url"].endswith(".srt"), data
+          assert isinstance(data.get("video_base64"), str) and len(data["video_base64"]) > 1000, "Serverless MP4 payload missing"
           print("MP4 endpoint created:", data["video_url"])
+          print("Serverless MP4 payload chars:", len(data["video_base64"]))
           print("Voiceover status:", data["voiceover"])
           PY
           VIDEO_URL=$(python -c 'import json; print(json.load(open("/tmp/create-result.json"))["video_url"])')
