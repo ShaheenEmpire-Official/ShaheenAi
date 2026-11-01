@@ -1,3 +1,4 @@
+import base64
 import html
 import ipaddress
 import os
@@ -29,6 +30,29 @@ MAX_PAGE_BYTES = 3_000_000
 app = FastAPI(title="SHAHEEN AI Video Studio", version="1.0.0")
 app.mount("/media", StaticFiles(directory=str(OUTPUT_DIR)), name="media")
 rate_windows = defaultdict(deque)
+
+
+@app.middleware("http")
+async def normalize_vercel_rewrite_path(request: Request, call_next):
+    # Vercel rewrites /api/* to the single FastAPI function at /api/index/*.
+    path = request.scope.get("path", "")
+    prefix = "/api/index"
+    if os.environ.get("VERCEL") and path.startswith(prefix):
+        rewritten = path[len(prefix):] or "/"
+        request.scope["path"] = rewritten
+        request.scope["raw_path"] = rewritten.encode("utf-8")
+    return await call_next(request)
+
+
+def get_ffmpeg_binary():
+    system_binary = shutil.which("ffmpeg")
+    if system_binary:
+        return system_binary
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        return None
 
 
 class CreateRequest(BaseModel):
@@ -275,7 +299,8 @@ def make_srt(lines, durations):
 
 def render_video(title: str, lines, language: str, job_id: str,
                  video_format: str, length: str, use_voiceover: bool):
-    if not shutil.which("ffmpeg"):
+    ffmpeg_binary = get_ffmpeg_binary()
+    if not ffmpeg_binary:
         raise HTTPException(503, "The video renderer is not installed on this server.")
     is_urdu = language == "Urdu"
     work = Path(tempfile.mkdtemp(prefix="shaheenai-"))
@@ -315,14 +340,15 @@ def render_video(title: str, lines, language: str, job_id: str,
         srt_name = f"{job_id}.srt"
         video_path, srt_path = OUTPUT_DIR/video_name, OUTPUT_DIR/srt_name
         width, height = SIZES[video_format]
-        command = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+        command = [ffmpeg_binary, "-y", "-hide_banner", "-loglevel", "error",
                    "-f", "concat", "-safe", "0", "-i", str(concat_file)]
         if voiceover_ok:
             command += ["-i", str(audio_path), "-map", "0:v:0", "-map", "1:a:0"]
         else:
             command += ["-map", "0:v:0", "-an"]
         command += ["-vf", "fps=30,format=yuv420p", "-s", f"{width}x{height}",
-                    "-c:v", "libx264", "-preset", "veryfast", "-crf", "22"]
+                    "-c:v", "libx264", "-preset", "veryfast", "-crf", "26",
+                    "-maxrate", "550k", "-bufsize", "1100k"]
         if voiceover_ok:
             command += ["-c:a", "aac", "-b:a", "128k", "-shortest"]
         else:
@@ -366,7 +392,7 @@ def health():
         "ok": True,
         "service": "SHAHEEN AI Video Studio",
         "version": "1.0.0",
-        "video_renderer": bool(shutil.which("ffmpeg")),
+        "video_renderer": bool(get_ffmpeg_binary()),
         "formats": list(SIZES.keys()),
         "features": ["public webpage reading", "vertical/landscape/square MP4",
                      "optional Urdu/English voiceover", "SRT captions"],
@@ -392,8 +418,19 @@ def create(req: CreateRequest, request: Request):
         title, script_lines, language, job_id, req.video_format, req.length, req.voiceover
     )
     base = str(request.base_url).rstrip("/")
+    video_base64 = None
+    if os.environ.get("VERCEL"):
+        # Vercel functions are stateless: send the rendered MP4 in the same
+        # response so the browser can preview/download it without a later
+        # request landing on a different temporary instance.
+        encoded = base64.b64encode((OUTPUT_DIR / video_name).read_bytes()).decode("ascii")
+        if len(encoded) > 3_200_000:
+            raise HTTPException(413, "This video is too large for the free serverless response. Try the Quick length.")
+        video_base64 = encoded
+
     return {
         "status": "video_created",
+        "video_base64": video_base64,
         "title": title,
         "source_url": final_url,
         "language": language,
