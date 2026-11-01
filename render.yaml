@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: shaheenai-creator-engine
+    name: shaheenai-video-studio
     runtime: docker
     plan: free
     region: singapore
