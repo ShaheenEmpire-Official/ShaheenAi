@@ -1,6 +1,6 @@
 import unittest
 
-from backend.main import extract_page, make_srt, shape_text
+from backend.main import SIZES, extract_page, make_srt, shape_text
 
 
 class EngineTests(unittest.TestCase):
@@ -29,14 +29,33 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(language, "Urdu")
         self.assertTrue(paragraphs)
 
-    def test_srt_has_caption_timecodes(self):
+    def test_srt_has_contiguous_caption_timecodes(self):
         result = make_srt(["First caption", "Second caption"], [2.5, 3.0])
         self.assertIn("00:00:00,000 --> 00:00:02,500", result)
         self.assertIn("00:00:02,500 --> 00:00:05,500", result)
+        self.assertEqual(result.count("-->"), 2)
 
     def test_urdu_text_shaper_keeps_text(self):
         original = "اردو ویڈیو"
         self.assertTrue(shape_text(original, True))
+
+    def test_all_video_shapes_are_supported(self):
+        self.assertEqual(SIZES["vertical"], (1080, 1920))
+        self.assertEqual(SIZES["landscape"], (1920, 1080))
+        self.assertEqual(SIZES["square"], (1080, 1080))
+
+    def test_extract_uses_description_when_body_is_short(self):
+        html = """
+        <html><head><title>Short page</title>
+        <meta name="description" content="A useful description for this simple webpage.">
+        </head><body><p>Short.</p></body></html>
+        """
+        _, description, _, paragraphs, language = extract_page(
+            html, "https://example.com/"
+        )
+        self.assertIn("useful description", description)
+        self.assertTrue(paragraphs)
+        self.assertEqual(language, "English")
 
 
 if __name__ == "__main__":
