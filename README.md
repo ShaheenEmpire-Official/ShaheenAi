@@ -1,21 +1,20 @@
-# ShaheenAI Creator
+# SHAHEEN AI Video Studio
 
-ShaheenAI now includes a one-input website-to-explainer-video prototype. The visitor enters a public webpage URL. The server extracts readable HTML text, creates text-card scenes, attempts an automatic spoken narration, renders an MP4 with FFmpeg, and creates an SRT caption file.
+SHAHEEN AI turns a public webpage into an original, share-ready explainer video. Open the app, paste a URL, choose a video shape, and create an MP4 with optional narration and subtitle captions.
 
-## Important: deploy the server once
+## What it does
 
-GitHub Pages hosts static files only; it cannot execute the Python video engine. The repo includes a Render Blueprint and Dockerfile.
-
-1. Open the repository's GitHub Pages URL.
-2. Tap **Deploy ShaheenAI server**. Sign in to Render and authorize access to this GitHub repository.
-3. Choose the free service option shown by Render and finish creating the service.
-4. After the service finishes its first deploy, open the Render URL shown in the Render dashboard. That is the working ShaheenAI app. It asks only for a website URL.
-
-The first deploy requires the repository owner's action and approval. This project cannot create a hosting account or approve access on the owner's behalf. Render's free service can sleep after inactivity, so the first request after sleep may take longer.
+- Reads publicly accessible HTML pages and extracts the title, description, headings, and readable page text.
+- Detects Urdu-script or English content and prepares a short story outline.
+- Renders original SHAHEEN AI text-card visuals as MP4 in **vertical (9:16), landscape (16:9), or square (1:1)** formats.
+- Offers quick or standard video timing.
+- Attempts English or Urdu narration using gTTS. When voice generation is unavailable, video creation continues without narration.
+- Generates a timed SRT subtitle file and provides an in-page video preview and download links.
+- Includes a health endpoint at `/api/health`, basic per-client request throttling, URL validation, redirect re-validation, and a 3 MB source-page limit.
 
 ## Run locally
 
-Python 3.10+, FFmpeg and the packages in requirements.txt are required.
+Requirements: Python 3.11+, FFmpeg, and the packages in `requirements.txt`.
 
 ```bash
 pip install -r requirements.txt
@@ -24,22 +23,33 @@ uvicorn backend.main:app --host 0.0.0.0 --port 8000
 
 Open http://127.0.0.1:8000.
 
-## Current working scope
+## Deploy on Render
 
-- Reads public HTML pages that allow automated requests.
-- Extracts page title, description, headings and readable paragraphs.
-- Detects whether the source text is Urdu script or English.
-- Creates a short text-card explainer video (MP4) with original ShaheenAI visuals.
-- Attempts to add spoken voiceover using gTTS; video creation can still complete without audio if that service is unavailable.
-- Produces timed SRT captions and offers downloads.
+The repository includes a Dockerfile and Render Blueprint. The blueprint defines a single free-plan web service in the Singapore region.
 
-## Not included / honest limits
+1. Open the Render Blueprint page for this repository:  
+   https://dashboard.render.com/blueprint/new?repo=https://github.com/ShaheenEmpire-Official/ShaheenAi
+2. Review the service settings and apply the Blueprint.
+3. Once the first deploy is live, open the service URL supplied by Render. The app and API run together on that URL.
 
-- It does not copy or download a website's existing videos, images or music.
-- It does not yet translate arbitrary English content into Urdu or Urdu into English.
-- It is a deterministic webpage explainer, not a general AI writer or a full professional editor.
-- Pages that require login, block automated access, or render their content only through client-side JavaScript may not be readable.
-- Generated files are stored on the server's temporary filesystem. Download them after generation; temporary files may disappear after a restart or redeploy.
-- Render free instances can sleep when idle and are intended for testing/hobby projects, not production guarantees.
+The repository is public, but deploying still requires a Render account and the account owner's approval in Render. Render free services may sleep when idle and are resource-limited; first requests can be slow and sustained video workloads are not guaranteed. Confirm current plan terms in Render before using it for public production traffic.
 
-Only use URLs and source material you have permission to process.
+## Test suite
+
+```bash
+python -m compileall -q backend tests
+python -m unittest discover -s tests -v
+```
+
+GitHub Actions also builds the Docker image and runs an end-to-end MP4/SRT smoke test after pushes and pull requests.
+
+## Important limits
+
+- The output is an animated text-card explainer, not a pixel-perfect screen recording of the source website and not a full AI video editor.
+- It does not copy the source website's images, videos, or music.
+- It does not translate arbitrary content between languages or rewrite it with a large language model.
+- Pages requiring login, blocking automated requests, or rendering most content only with client-side JavaScript may not be readable.
+- gTTS relies on an external service and may not always be available.
+- Generated files are kept on the server's temporary filesystem. Download them after creation; files can disappear after restarts or redeploys.
+- The URL checks block common private/local destinations and re-check redirects, but they are not a substitute for a dedicated production security review.
+- Use only websites and content you own or have permission to process.
