@@ -17,7 +17,17 @@ jobs:
       - name: Install app requirements
         run: pip install -r requirements.txt
       - name: Check Python syntax
-        run: python -m compileall -q backend tests
+        run: python -m compileall -q backend tests index.py
+      - name: Validate Vercel deployment files
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          cfg = json.loads(Path("vercel.json").read_text())
+          assert cfg["functions"]["index.py"]["maxDuration"] == 300
+          assert Path("index.py").is_file()
+          print("Vercel FastAPI entrypoint and configuration are present.")
+          PY
       - name: Run engine tests
         run: python -m unittest discover -s tests -v
       - name: Build video-rendering Docker image
@@ -26,7 +36,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker run -d --name shaheenai-smoke -p 10000:10000 shaheenai-test
+          docker run -d --name shaheenai-smoke -e VERCEL=1 -p 10000:10000 shaheenai-test
           trap 'docker logs shaheenai-smoke || true; docker rm -f shaheenai-smoke || true' EXIT
           ready=0
           for attempt in $(seq 1 60); do
