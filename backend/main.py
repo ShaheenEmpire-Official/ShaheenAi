@@ -264,19 +264,31 @@ def make_slide(path: Path, title: str, sentence: str, index: int, total: int,
 
 def probe_duration(path: Path):
     probe = shutil.which("ffprobe")
-    if not probe:
+    if probe:
+        result = subprocess.run(
+            [probe, "-v", "error", "-show_entries", "format=duration",
+             "-of", "default=noprint_wrappers=1:nokey=1", str(path)],
+            capture_output=True, text=True, timeout=15,
+        )
+        if result.returncode == 0:
+            try:
+                return max(1.0, float(result.stdout.strip()))
+            except ValueError:
+                pass
+
+    # imageio-ffmpeg supplies ffmpeg but not ffprobe on serverless platforms.
+    ffmpeg = get_ffmpeg_binary()
+    if not ffmpeg:
         return None
     result = subprocess.run(
-        [probe, "-v", "error", "-show_entries", "format=duration",
-         "-of", "default=noprint_wrappers=1:nokey=1", str(path)],
-        capture_output=True, text=True, timeout=15,
+        [ffmpeg, "-hide_banner", "-i", str(path), "-f", "null", "-"],
+        capture_output=True, text=True, timeout=20,
     )
-    if result.returncode != 0:
+    match = re.search(r"Duration:\\s*(\\d+):(\\d+):([\\d.]+)", result.stderr or "")
+    if not match:
         return None
-    try:
-        return max(1.0, float(result.stdout.strip()))
-    except ValueError:
-        return None
+    hours, minutes, seconds = match.groups()
+    return max(1.0, int(hours) * 3600 + int(minutes) * 60 + float(seconds))
 
 
 def make_srt(lines, durations):
