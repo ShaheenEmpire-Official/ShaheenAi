@@ -284,7 +284,7 @@ def probe_duration(path: Path):
         [ffmpeg, "-hide_banner", "-i", str(path), "-f", "null", "-"],
         capture_output=True, text=True, timeout=20,
     )
-    match = re.search(r"Duration:\\s*(\\d+):(\\d+):([\\d.]+)", result.stderr or "")
+    match = re.search(r"Duration:\s*(\d+):(\d+):([\d.]+)", result.stderr or "")
     if not match:
         return None
     hours, minutes, seconds = match.groups()
