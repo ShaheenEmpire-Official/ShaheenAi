@@ -89,10 +89,18 @@ const button=el("create");
 const status=el("status");
 const progress=el("progress");
 const result=el("result");
-fetch("/api/health").then(r=>{if(!r.ok)throw new Error("offline");return r.json()}).then(data=>{
-  el("health").textContent=data.video_renderer?"Video engine online":"Renderer unavailable";
-  el("health").classList.toggle("online",!!data.video_renderer);
-}).catch(()=>{el("health").textContent="Connecting to video engine"});
+const staticPreview=location.hostname.endsWith(".github.io");
+if(staticPreview){
+  el("health").textContent="Interface preview only";
+  status.textContent="The interface is hosted, but the video-rendering server is not connected yet. MP4 generation is unavailable on this preview page.";
+  button.disabled=true;
+}else{
+  fetch("/api/health").then(r=>{if(!r.ok)throw new Error("offline");return r.json()}).then(data=>{
+    el("health").textContent=data.video_renderer?"Video engine online":"Renderer unavailable";
+    el("health").classList.toggle("online",!!data.video_renderer);
+    if(!data.video_renderer){button.disabled=true;status.textContent="The video renderer is not available on this server yet.";}
+  }).catch(()=>{el("health").textContent="Video engine offline";button.disabled=true;status.textContent="The video engine is not connected. Please open the deployed app server URL.";});
+}
 form.addEventListener("submit",async event=>{
   event.preventDefault();
   const url=el("url").value.trim();
