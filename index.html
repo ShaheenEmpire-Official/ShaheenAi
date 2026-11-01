@@ -89,6 +89,7 @@ const button=el("create");
 const status=el("status");
 const progress=el("progress");
 const result=el("result");
+let currentVideoUrl=null;
 const staticPreview=location.hostname.endsWith(".github.io");
 if(staticPreview){
   el("health").textContent="Interface preview only";
@@ -119,8 +120,20 @@ form.addEventListener("submit",async event=>{
     const data=await response.json();
     if(!response.ok)throw new Error(data.detail||"The video could not be created.");
     el("videoTitle").textContent=data.title;
-    el("preview").src=data.video_url;
-    el("downloadVideo").href=data.download_url||data.video_url;
+    if(currentVideoUrl){URL.revokeObjectURL(currentVideoUrl);currentVideoUrl=null;}
+    if(data.video_base64){
+      const binary=atob(data.video_base64);
+      const bytes=new Uint8Array(binary.length);
+      for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+      currentVideoUrl=URL.createObjectURL(new Blob([bytes],{type:"video/mp4"}));
+      el("preview").src=currentVideoUrl;
+      el("downloadVideo").href=currentVideoUrl;
+      const safeName=(data.title||"shaheen-video").replace(/[^a-z0-9-_]+/gi,"-").slice(0,50)||"shaheen-video";
+      el("downloadVideo").download=safeName+".mp4";
+    }else{
+      el("preview").src=data.video_url;
+      el("downloadVideo").href=data.download_url||data.video_url;
+    }
     el("downloadSrt").href=data.captions_url;
     el("script").textContent=(data.script||[]).join("\n\n");
     el("voiceStatus").textContent=data.voiceover==="generated"?"✓ Voiceover included.":data.voiceover==="disabled"?"Voiceover was turned off.":"Video created; voiceover was unavailable this time.";
